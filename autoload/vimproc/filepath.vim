@@ -168,7 +168,16 @@ function! s:is_case_tolerant()
 endfunction
 
 function! vimproc#filepath#which(command, path, maxcount)
-  return s:which(a:command, a:path, a:maxcount)
+  if !exists('s:command_cache')
+    let s:command_cache = {}
+  endif
+  if has_key(s:command_cache, a:command)
+    let result = s:command_cache[a:command]
+  else
+    let result = s:which(a:command, a:path, a:maxcount)
+    let s:command_cache[a:command] = result
+  endif
+  return result
 endfunction
 
 let &cpo = s:save_cpo
