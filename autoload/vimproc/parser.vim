@@ -1,7 +1,6 @@
 "=============================================================================
 " FILE: parser.vim
 " AUTHOR:  Shougo Matsushita <Shougo.Matsu@gmail.com>
-" Last Modified: 17 Jan 2014.
 " License: MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -97,7 +96,11 @@ function! s:parse_cmdline(cmdline) "{{{
 endfunction"}}}
 function! vimproc#parser#parse_statements(script) "{{{
   if type(a:script) == type('')  && a:script =~ '^\s*:'
-    return [ { 'statement' : a:script, 'condition' : 'always' } ]
+    return [ {
+          \ 'statement' : a:script,
+          \ 'condition' : 'always',
+          \ 'cwd' : getcwd(),
+          \ } ]
   endif
 
   let script = type(a:script) == type([]) ?
@@ -110,8 +113,10 @@ function! vimproc#parser#parse_statements(script) "{{{
     if script[i] == ';'
       if statement != ''
         call add(statements,
-              \ { 'statement' : statement,
-              \   'condition' : 'always',
+              \ {
+              \ 'statement' : statement,
+              \ 'condition' : 'always',
+              \ 'cwd' : getcwd(),
               \})
       endif
       let statement = ''
@@ -120,8 +125,10 @@ function! vimproc#parser#parse_statements(script) "{{{
       if i+1 < max && script[i+1] == '&'
         if statement != ''
           call add(statements,
-                \ { 'statement' : statement,
-                \   'condition' : 'true',
+                \ {
+                \ 'statement' : statement,
+                \ 'condition' : 'true',
+                \ 'cwd' : getcwd(),
                 \})
         endif
         let statement = ''
@@ -135,8 +142,10 @@ function! vimproc#parser#parse_statements(script) "{{{
       if i+1 < max && script[i+1] == '|'
         if statement != ''
           call add(statements,
-                \ { 'statement' : statement,
-                \   'condition' : 'false',
+                \ {
+                \ 'statement' : statement,
+                \ 'condition' : 'false',
+                \ 'cwd' : getcwd(),
                 \})
         endif
         let statement = ''
@@ -179,8 +188,10 @@ function! vimproc#parser#parse_statements(script) "{{{
 
   if statement !~ '^\s*$'
     call add(statements,
-          \ { 'statement' : statement,
-          \   'condition' : 'always',
+          \ {
+          \ 'statement' : statement,
+          \ 'condition' : 'always',
+          \ 'cwd' : getcwd(),
           \})
   endif
 
@@ -520,11 +531,16 @@ function! s:parse_block(script) "{{{
   while i < max
     if a:script[i] == '{'
       " Block.
+      let block = matchstr(a:script, '^{\zs.\{-1}\ze}', i)
+      let rest = a:script[matchend(a:script, '^{.\{-1}}', i) :]
+      if block == ''
+        let [script, i] = s:skip_else(script, a:script, i)
+        continue
+      endif
+
       let head = matchstr(a:script[: i-1], '[^[:blank:]]*$')
       " Truncate script.
       let script = script[: -len(head)-1]
-      let block = matchstr(a:script, '{\zs.*[^\\]\ze}', i)
-      let rest = a:script[matchend(a:script, '{.*[^\\]}', i) :]
       let rest = (rest =~ '^\s\+' ? ' ' : '') .
             \ join(vimproc#parser#split_args(s:parse_cmdline(rest)))
       let foot = matchstr(rest, '^\S\+')
