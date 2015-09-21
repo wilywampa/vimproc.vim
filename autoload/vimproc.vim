@@ -60,6 +60,10 @@ elseif glob('/lib*/ld-linux*64.so.2',1) != ''
   let s:vimproc_dll_basename = 'vimproc_linux64.so'
 elseif glob('/lib*/ld-linux*.so.2',1) != ''
   let s:vimproc_dll_basename = 'vimproc_linux32.so'
+elseif system('uname -s') =~? '^.\+BSD\n$'
+  let s:vimproc_dll_basename = system(
+        \ 'uname -sm | tr "[:upper:]" "[:lower:]"'
+        \ .' | sed -e "s/ /_/" | xargs -I "{}" echo vimproc_{}.so')[0 : -2]
 else
   let s:vimproc_dll_basename = 'vimproc_unix.so'
 endif
@@ -1239,7 +1243,7 @@ endfunction
 function! s:libcall(func, args) "{{{
   let stack_buf = libcall(g:vimproc#dll_path, a:func, s:encode_list(a:args))
   if empty(stack_buf)
-    return
+    return []
   endif
   let [result, err] = s:decode_list(stack_buf)
   if err
