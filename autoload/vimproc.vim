@@ -141,7 +141,7 @@ if !filereadable(g:vimproc#dll_path) || !has('libcall') "{{{
 endif"}}}
 
 function! vimproc#version() "{{{
-  return str2nr(printf('%2d%02d', 9, 0))
+  return str2nr(printf('%2d%02d', 9, 1))
 endfunction"}}}
 function! vimproc#dll_version() "{{{
   let [dll_version] = s:libcall('vp_dlversion', [])
@@ -714,7 +714,10 @@ function! vimproc#kill(pid, sig) "{{{
   if a:sig == 0 && vimproc#util#is_windows()
     " Use waitpid().
     let cond = s:waitpid(a:pid)[0]
-    return cond ==# 'run'
+    if cond ==# 'error'
+      let s:last_errmsg = 'waitpid error'
+    endif
+    return cond !=# 'run'
   endif
 
   try
@@ -1216,7 +1219,7 @@ endfunction
 function! s:encode_list(arr)
   " End Of Value
   let EOV = "\xFF"
-  " encoded size0, data0, EOV, encoded size1, data1, EOV, ...
+  " EOV, encoded size0, data0, EOV, encoded size1, data1, EOV, ...
   return empty(a:arr) ? '' :
     \ (EOV . join(map(copy(a:arr), 's:encode_size(strlen(v:val)) . v:val'), EOV) . EOV)
 endfunction
@@ -1259,7 +1262,8 @@ endfunction"}}}
 
 " args[0]: fd, args[1]: count, args[2]: timeout
 function! s:libcall_raw_read(func, args) "{{{
-  return s:libcall(a:func, a:args)
+  let [err, hd] = s:libcall(a:func, a:args)
+  return [hd, err]
 endfunction "}}}
 
 " args[0]: fd, args[1]: data, args[2]: timeout
@@ -1724,7 +1728,7 @@ endif
 
 " vimproc dll version check. "{{{
 try
-  if vimproc#dll_version() < vimproc#version()
+  if vimproc#dll_version() != vimproc#version()
     call s:print_error(printf('Your vimproc binary version is "%d",'.
           \ ' but vimproc version is "%d".',
           \ vimproc#dll_version(), vimproc#version()))
@@ -1732,7 +1736,7 @@ try
 catch
   call s:print_error(v:throwpoint)
   call s:print_error(v:exception)
-  call s:print_error('Your vimproc binary is too old!')
+  call s:print_error('Your vimproc binary is not compatible with this vimproc!')
   call s:print_error('Please re-compile it.')
 endtry
 "}}}
